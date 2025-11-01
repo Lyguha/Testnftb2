@@ -3,11 +3,26 @@ local auto = 0
 local autoFarmEnabled = false
 local currentMoney = 0
 
--- Функция для получения текущего количества денег
+-- Получаем ссылки на необходимые объекты игры
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Функция для получения текущего количества денег из игры
 local function getMoney()
-    -- Замените этот код на фактический способ получения денег из игры
-    -- Это пример - вам нужно адаптировать под вашу игру
-    return currentMoney
+    local success, result = pcall(function()
+        -- Получаем значение денег из _StarsValue
+        local starsValue = LocalPlayer:WaitForChild("_StarsValue")
+        return starsValue.Value
+    end)
+    
+    if success then
+        return result
+    else
+        -- Если произошла ошибка, возвращаем последнее известное значение
+        warn("Ошибка при получении денег: " .. tostring(result))
+        return currentMoney
+    end
 end
 
 -- Функция для определения, какой кейс открывать
@@ -35,23 +50,35 @@ local function autoFarmCases()
         local caseType = getCaseToOpen()
         
         -- Открываем кейс
-        local args = {
-            caseType,
-            10
-        }
-        game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("OpenCase"):InvokeServer(unpack(args))
+        local success, errorMsg = pcall(function()
+            local args = {
+                caseType,
+                10
+            }
+            game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("OpenCase"):InvokeServer(unpack(args))
+        end)
+        
+        if not success then
+            warn("Ошибка при открытии кейса: " .. tostring(errorMsg))
+        end
         
         -- Продаем все предметы
-        local args = {
-            "Sell",
-            "ALL"
-        }
-        game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Inventory"):FireServer(unpack(args))
+        local sellSuccess, sellError = pcall(function()
+            local args = {
+                "Sell",
+                "ALL"
+            }
+            game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Inventory"):FireServer(unpack(args))
+        end)
+        
+        if not sellSuccess then
+            warn("Ошибка при продаже предметов: " .. tostring(sellError))
+        end
         
         wait(1)
         auto += 1
         
-        -- Обновляем счетчик денег (заглушка - замените на реальный метод)
+        -- Обновляем счетчик денег
         currentMoney = getMoney()
     end
 end
@@ -86,10 +113,10 @@ local Tab3 = Window:CreateTab("Beggar", "banknote")
 local Tab5 = Window:CreateTab("Plodder", "banknote")
 local Tab6 = Window:CreateTab("Office Clerk", "banknote")
 local Tab7 = Window:CreateTab("Manager", "banknote")
-local Tab8 = Window:CreateTab("Авто Фарм", "settings") -- Новая вкладка для автофарма
+local Tab8 = Window:CreateTab("Авто Фарм", "settings")
 local Tab1 = Window:CreateTab("Credits", "creative-commons")
 
--- Добавляем элементы в новую вкладку Авто Фарм
+-- Добавляем элементы в вкладку Авто Фарм
 local Label = Tab8:CreateLabel("Автоматический фарм кейсов")
 local Label = Tab8:CreateLabel("Система автоматически выбирает кейс по деньгам:")
 local Label = Tab8:CreateLabel("• < 50K: Trash")
@@ -103,6 +130,7 @@ local CurrentMoneyLabel = Tab8:CreateLabel("Текущие деньги: 0")
 
 -- Функция для обновления отображения денег
 local function updateMoneyDisplay()
+    currentMoney = getMoney()
     CurrentMoneyLabel:Set("Текущие деньги: " .. tostring(currentMoney))
 end
 
@@ -120,7 +148,8 @@ local ToggleButton = Tab8:CreateToggle({
                 Duration = 3,
                 Image = "✓",
             })
-            autoFarmCases()
+            -- Запускаем автофарм в отдельной корутине
+            coroutine.wrap(autoFarmCases)()
         else
             Rayfield:Notify({
                 Title = "Автофарм остановлен",
@@ -132,11 +161,10 @@ local ToggleButton = Tab8:CreateToggle({
     end,
 })
 
--- Кнопка для обновления баланса денег (для тестирования)
+-- Кнопка для обновления баланса денег
 local Button = Tab8:CreateButton({
     Name = "Обновить баланс",
     Callback = function()
-        currentMoney = getMoney()
         updateMoneyDisplay()
         Rayfield:Notify({
             Title = "Баланс обновлен",
@@ -182,9 +210,7 @@ Rayfield:Notify({
    Image = "x",
 })
 
--- [Здесь остальной ваш код для ручного фарма разных кейсов...]
--- Добавьте все ваши существующие кнопки для ручного фарма
-
+-- Ваш существующий код для ручного фарма
 local Button = Tab:CreateButton({
    Name = "Фарм 1МЛН кейсов",
    Callback = function()
@@ -210,8 +236,6 @@ end
    end,
 })
 
--- [Продолжайте добавлять все остальные ваши кнопки...]
-
 local Button = Tab2:CreateButton({
    Name = "Полностью закрыть GUI",
    Callback = function()
@@ -219,11 +243,10 @@ local Button = Tab2:CreateButton({
    end,
 })
 
--- Запускаем периодическое обновление денег
-while true do
-    if autoFarmEnabled then
-        currentMoney = getMoney()
+-- Автоматическое обновление отображения денег
+coroutine.wrap(function()
+    while true do
         updateMoneyDisplay()
+        wait(2) -- Обновляем каждые 2 секунды
     end
-    wait(5) -- Обновляем каждые 5 секунд
-end
+end)()

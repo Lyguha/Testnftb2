@@ -1,0 +1,229 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local auto = 0
+local autoFarmEnabled = false
+local currentMoney = 0
+
+-- Функция для получения текущего количества денег
+local function getMoney()
+    -- Замените этот код на фактический способ получения денег из игры
+    -- Это пример - вам нужно адаптировать под вашу игру
+    return currentMoney
+end
+
+-- Функция для определения, какой кейс открывать
+local function getCaseToOpen()
+    local money = getMoney()
+    
+    if money >= 5000000 then
+        return "URUS"
+    elseif money >= 2500000 then
+        return "Dream"
+    elseif money >= 1000000 then
+        return "Cats"
+    elseif money >= 200000 then
+        return "Frozen Heart"
+    elseif money >= 50000 then
+        return "Gold"
+    else
+        return "Trash"
+    end
+end
+
+-- Функция автоматического фарма
+local function autoFarmCases()
+    while autoFarmEnabled do
+        local caseType = getCaseToOpen()
+        
+        -- Открываем кейс
+        local args = {
+            caseType,
+            10
+        }
+        game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("OpenCase"):InvokeServer(unpack(args))
+        
+        -- Продаем все предметы
+        local args = {
+            "Sell",
+            "ALL"
+        }
+        game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Inventory"):FireServer(unpack(args))
+        
+        wait(1)
+        auto += 1
+        
+        -- Обновляем счетчик денег (заглушка - замените на реальный метод)
+        currentMoney = getMoney()
+    end
+end
+
+local Window = Rayfield:CreateWindow({
+   Name = "Автофарм кейсов",
+   Icon = 0,
+   LoadingTitle = "не мой гуи",
+   LoadingSubtitle = "by Sirius",
+   ShowText = "Автофарм Trash кейсов",
+   Theme = "Default",
+   ToggleUIKeybind = "K",
+   DisableRayfieldPrompts = false,
+   DisableBuildWarnings = false,
+   ConfigurationSaving = {
+      Enabled = false,
+      FolderName = nil,
+      FileName = "Big Hub"
+   },
+   Discord = {
+      Enabled = false,
+      Invite = "noinvitelink",
+      RememberJoins = true
+   },
+   KeySystem = false
+})
+
+local Tab2 = Window:CreateTab("Info", "book-text")
+local Tab4 = Window:CreateTab("Halloween", "banknote")
+local Tab = Window:CreateTab("Trash", "banknote")
+local Tab3 = Window:CreateTab("Beggar", "banknote")
+local Tab5 = Window:CreateTab("Plodder", "banknote")
+local Tab6 = Window:CreateTab("Office Clerk", "banknote")
+local Tab7 = Window:CreateTab("Manager", "banknote")
+local Tab8 = Window:CreateTab("Авто Фарм", "settings") -- Новая вкладка для автофарма
+local Tab1 = Window:CreateTab("Credits", "creative-commons")
+
+-- Добавляем элементы в новую вкладку Авто Фарм
+local Label = Tab8:CreateLabel("Автоматический фарм кейсов")
+local Label = Tab8:CreateLabel("Система автоматически выбирает кейс по деньгам:")
+local Label = Tab8:CreateLabel("• < 50K: Trash")
+local Label = Tab8:CreateLabel("• ≥ 50K: Gold")
+local Label = Tab8:CreateLabel("• ≥ 200K: Frozen Heart")
+local Label = Tab8:CreateLabel("• ≥ 1M: Cats")
+local Label = Tab8:CreateLabel("• ≥ 2.5M: Dream")
+local Label = Tab8:CreateLabel("• ≥ 5M: URUS")
+
+local CurrentMoneyLabel = Tab8:CreateLabel("Текущие деньги: 0")
+
+-- Функция для обновления отображения денег
+local function updateMoneyDisplay()
+    CurrentMoneyLabel:Set("Текущие деньги: " .. tostring(currentMoney))
+end
+
+-- Кнопка запуска автофарма
+local ToggleButton = Tab8:CreateToggle({
+    Name = "Авто Фарм кейсов",
+    CurrentValue = false,
+    Flag = "AutoFarmToggle",
+    Callback = function(Value)
+        autoFarmEnabled = Value
+        if Value then
+            Rayfield:Notify({
+                Title = "Автофарм запущен",
+                Content = "Система автоматически открывает кейсы",
+                Duration = 3,
+                Image = "✓",
+            })
+            autoFarmCases()
+        else
+            Rayfield:Notify({
+                Title = "Автофарм остановлен",
+                Content = "Автоматический фарм отключен",
+                Duration = 3,
+                Image = "✗",
+            })
+        end
+    end,
+})
+
+-- Кнопка для обновления баланса денег (для тестирования)
+local Button = Tab8:CreateButton({
+    Name = "Обновить баланс",
+    Callback = function()
+        currentMoney = getMoney()
+        updateMoneyDisplay()
+        Rayfield:Notify({
+            Title = "Баланс обновлен",
+            Content = "Текущие деньги: " .. tostring(currentMoney),
+            Duration = 3,
+            Image = "✓",
+        })
+    end,
+})
+
+-- Кнопка для ручной установки денег (для тестирования)
+local Input = Tab8:CreateInput({
+    Name = "Установить деньги (тест)",
+    PlaceholderText = "Введите сумму",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(Text)
+        currentMoney = tonumber(Text) or 0
+        updateMoneyDisplay()
+        Rayfield:Notify({
+            Title = "Деньги установлены",
+            Content = "Установлено: " .. tostring(currentMoney),
+            Duration = 3,
+            Image = "✓",
+        })
+    end,
+})
+
+-- Остальной код вкладок остается без изменений
+local Label = Tab1:CreateLabel("Кодер: Авед")
+local Label = Tab1:CreateLabel("Тестер: Авед, Дэмэнтый")
+local Label = Tab1:CreateLabel("Гуи: Sirius")
+local Label = Tab1:CreateLabel("Мария: Зайцева")
+local Label = Tab2:CreateLabel("Тестировал на: Delta(android)")
+local Label = Tab2:CreateLabel("Тестировал на: Seliware(desktop)")
+local Label = Tab2:CreateLabel("Это open source проект")
+local Label = Tab2:CreateLabel("Донатов нету, разраб хороший прост")
+local Label = Tab2:CreateLabel("Ксено и соляра юзеры пидорасы")
+
+Rayfield:Notify({
+   Title = "ВНИМАНИЕ",
+   Content = "На телефонах возможны баги",
+   Duration = 6.5,
+   Image = "x",
+})
+
+-- [Здесь остальной ваш код для ручного фарма разных кейсов...]
+-- Добавьте все ваши существующие кнопки для ручного фарма
+
+local Button = Tab:CreateButton({
+   Name = "Фарм 1МЛН кейсов",
+   Callback = function()
+   while true do
+    local args = {
+    "Trash",
+    10
+  }
+  game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("OpenCase"):InvokeServer(unpack(args))
+    local args = {
+    "Sell",
+    "ALL"
+  }
+  game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Inventory"):FireServer(unpack(args))
+  wait(1)
+  auto += 1
+  
+  if auto == 100000 then
+    auto = 0
+    break
+  end
+end
+   end,
+})
+
+-- [Продолжайте добавлять все остальные ваши кнопки...]
+
+local Button = Tab2:CreateButton({
+   Name = "Полностью закрыть GUI",
+   Callback = function()
+   Rayfield:Destroy()
+   end,
+})
+
+-- Запускаем периодическое обновление денег
+while true do
+    if autoFarmEnabled then
+        currentMoney = getMoney()
+        updateMoneyDisplay()
+    end
+    wait(5) -- Обновляем каждые 5 секунд
+end

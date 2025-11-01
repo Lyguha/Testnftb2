@@ -25,6 +25,59 @@ local function getMoney()
     end
 end
 
+-- Функция для продажи всех предметов
+local function sellAllItems()
+    local success, errorMsg = pcall(function()
+        local args = {
+            "Sell",
+            "ALL"
+        }
+        game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Inventory"):FireServer(unpack(args))
+    end)
+    
+    if not success then
+        warn("Ошибка при продаже предметов: " .. tostring(errorMsg))
+        return false
+    end
+    return true
+end
+
+-- Функция для продажи всех подарков
+local function sellAllGifts()
+    local success, errorMsg = pcall(function()
+        local args = {
+            "Sell",
+            "ALL"
+        }
+        -- Предполагаем, что для подарков используется тот же ивент, но с другим типом
+        -- Если в игре отдельный ивент для подарков, нужно его указать
+        game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Inventory"):FireServer(unpack(args))
+    end)
+    
+    if not success then
+        warn("Ошибка при продаже подарков: " .. tostring(errorMsg))
+        return false
+    end
+    return true
+end
+
+-- Функция для открытия всех подарков (если их нужно сначала открыть)
+local function openAllGifts()
+    local success, errorMsg = pcall(function()
+        -- Если в игре есть функция открытия подарков
+        local args = {
+            "OpenAllGifts"  -- или другой соответствующий аргумент
+        }
+        game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Gifts"):FireServer(unpack(args))
+    end)
+    
+    if not success then
+        -- Если нет отдельного ивента для подарков, это нормально
+        return false
+    end
+    return true
+end
+
 -- Функция для определения, какой кейс открывать
 local function getCaseToOpen()
     local money = getMoney()
@@ -47,6 +100,15 @@ end
 -- Функция автоматического фарма
 local function autoFarmCases()
     while autoFarmEnabled do
+        -- Сначала продаем все подарки (если есть)
+        sellAllGifts()
+        
+        -- Затем открываем подарки (если нужно их сначала открыть)
+        openAllGifts()
+        
+        -- Затем продаем предметы из инвентаря
+        sellAllItems()
+        
         local caseType = getCaseToOpen()
         
         -- Открываем кейс
@@ -62,24 +124,53 @@ local function autoFarmCases()
             warn("Ошибка при открытии кейса: " .. tostring(errorMsg))
         end
         
-        -- Продаем все предметы
-        local sellSuccess, sellError = pcall(function()
-            local args = {
-                "Sell",
-                "ALL"
-            }
-            game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Inventory"):FireServer(unpack(args))
-        end)
-        
-        if not sellSuccess then
-            warn("Ошибка при продаже предметов: " .. tostring(sellError))
-        end
+        -- Снова продаем все предметы после открытия кейса
+        sellAllItems()
         
         wait(1)
         auto += 1
         
         -- Обновляем счетчик денег
         currentMoney = getMoney()
+        
+        -- Периодически продаем подарки (каждые 10 итераций)
+        if auto % 10 == 0 then
+            sellAllGifts()
+            openAllGifts()
+        end
+    end
+end
+
+-- Функция для однократной продажи всех подарков
+local function sellAllGiftsOnce()
+    Rayfield:Notify({
+        Title = "Продажа подарков",
+        Content = "Начинаем продажу всех подарков...",
+        Duration = 3,
+        Image = "✓",
+    })
+    
+    -- Сначала открываем подарки (если нужно)
+    openAllGifts()
+    wait(0.5)
+    
+    -- Затем продаем
+    local success = sellAllGifts()
+    
+    if success then
+        Rayfield:Notify({
+            Title = "Успех",
+            Content = "Все подарки проданы!",
+            Duration = 3,
+            Image = "✓",
+        })
+    else
+        Rayfield:Notify({
+            Title = "Ошибка",
+            Content = "Не удалось продать подарки",
+            Duration = 3,
+            Image = "✗",
+        })
     end
 end
 
@@ -144,7 +235,7 @@ local ToggleButton = Tab8:CreateToggle({
         if Value then
             Rayfield:Notify({
                 Title = "Автофарм запущен",
-                Content = "Система автоматически открывает кейсы",
+                Content = "Система автоматически открывает кейсы и продает подарки",
                 Duration = 3,
                 Image = "✓",
             })
@@ -158,6 +249,14 @@ local ToggleButton = Tab8:CreateToggle({
                 Image = "✗",
             })
         end
+    end,
+})
+
+-- Кнопка для продажи всех подарков
+local GiftButton = Tab8:CreateButton({
+    Name = "Продать все подарки",
+    Callback = function()
+        sellAllGiftsOnce()
     end,
 })
 

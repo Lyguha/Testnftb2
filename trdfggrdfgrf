@@ -8,45 +8,41 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
--- База данных кейсов с ценами
+-- База данных кейсов с ценами и приоритетами
 local casesDatabase = {
-    -- Бесплатные кейсы
-    ["Daily"] = 0,
-    ["Trash"] = 0,
-    
-    -- Основные кейсы
-    ["Beggar"] = 220,
-    ["Plodder"] = 444,
-    ["Office Clerk"] = 689,
-    ["Manager"] = 835,
-    ["Director"] = 926,
-    ["Oligarch"] = 1364,
-    
-    -- Специальные кейсы
-    ["Frozen Heart"] = 4500,
-    ["Bubble Gum"] = 12000,
-    ["Cats"] = 40000,
-    ["Glitch"] = 135000,
-    ["Dream"] = 250000,
-    ["Bloody Night"] = 5000000,
+    -- Обычные кейсы (по возрастанию цены)
+    ["Beggar"] = {price = 220, priority = 1},
+    ["Plodder"] = {price = 444, priority = 2},
+    ["Office Clerk"] = {price = 689, priority = 3},
+    ["Manager"] = {price = 835, priority = 4},
+    ["Director"] = {price = 926, priority = 5},
+    ["Oligarch"] = {price = 1364, priority = 6},
     
     -- NFT кейсы
-    ["Gold"] = 1999,
-    ["Dark"] = 4999,
-    ["Palm"] = 13999,
-    ["Buri"] = 37999,
-    ["Luxury"] = 119999,
+    ["Gold"] = {price = 1999, priority = 7},
+    ["Dark"] = {price = 4999, priority = 8},
+    ["Palm"] = {price = 13999, priority = 9},
+    ["Buri"] = {price = 37999, priority = 10},
+    ["Luxury"] = {price = 119999, priority = 11},
     
     -- Автомобили
-    ["M5 F90"] = 55555,
-    ["G63"] = 177777,
-    ["Porsche 911"] = 599999,
-    ["URUS"] = 1666666
+    ["M5 F90"] = {price = 55555, priority = 12},
+    ["G63"] = {price = 177777, priority = 13},
+    ["Porsche 911"] = {price = 599999, priority = 14},
+    ["URUS"] = {price = 1666666, priority = 15},
+    
+    -- SPECIAL CASES
+    ["Frozen Heart"] = {price = 4500, priority = 16},
+    ["Bubble Gum"] = {price = 12000, priority = 17},
+    ["Cats"] = {price = 40000, priority = 18},
+    ["Glitch"] = {price = 135000, priority = 19},
+    ["Dream"] = {price = 250000, priority = 20},
+    ["Bloody Night"] = {price = 5000000, priority = 21}
 }
 
 -- Кэш для анализа окупаемости кейсов
 local caseProfitabilityCache = {}
-local caseHistory = {}
+local caseAnalysisCount = {}
 
 -- Функция для получения текущего количества денег из игры
 local function getMoney()
@@ -56,7 +52,6 @@ local function getMoney()
     end)
     
     if success then
-        currentMoney = result
         return result
     else
         warn("Ошибка при получении денег: " .. tostring(result))
@@ -64,312 +59,283 @@ local function getMoney()
     end
 end
 
--- Функция для мониторинга содержимого кейсов
-local function monitorCaseContents(caseName)
-    if not caseHistory[caseName] then
-        caseHistory[caseName] = {
-            totalOpened = 0,
-            totalCost = 0,
-            totalRevenue = 0,
-            items = {}
-        }
-    end
-    return caseHistory[caseName]
-end
-
--- Функция для записи результатов открытия кейса
-local function recordCaseResult(caseName, cost, itemsValue)
-    local caseData = monitorCaseContents(caseName)
-    caseData.totalOpened = caseData.totalOpened + 1
-    caseData.totalCost = caseData.totalCost + cost
-    caseData.totalRevenue = caseData.totalRevenue + itemsValue
-    
-    -- Рассчитываем текущую окупаемость
-    if caseData.totalOpened > 0 then
-        local avgReturn = caseData.totalRevenue / caseData.totalCost
-        local profitMargin = ((caseData.totalRevenue - caseData.totalCost) / caseData.totalCost) * 100
-        caseProfitabilityCache[caseName] = {
-            avgReturn = avgReturn,
-            profitMargin = profitMargin,
-            confidence = math.min(1, caseData.totalOpened / 10) -- Уверенность основана на количестве открытий
-        }
-    end
-end
-
--- Функция для анализа доступных кейсов в игре
-local function analyzeAvailableCases()
+-- Функция для получения всех доступных кейсов из игры
+local function getAvailableCases()
     local availableCases = {}
     
-    -- Пытаемся найти доступные кейсы через ReplicatedStorage
+    -- Пытаемся получить кейсы из различных мест в игре
     local success, result = pcall(function()
-        -- Ищем возможные места где могут храниться кейсы
-        local events = ReplicatedStorage:FindFirstChild("Events")
-        if events then
-            local openCaseEvent = events:FindFirstChild("OpenCase")
-            if openCaseEvent then
-                -- Если есть событие открытия кейса, предполагаем что все кейсы из базы доступны
-                for caseName, price in pairs(casesDatabase) do
-                    if currentMoney >= price then
-                        table.insert(availableCases, {
-                            name = caseName,
-                            price = price,
-                            affordable = true
-                        })
-                    end
+        -- Проверяем различные возможные места хранения информации о кейсах
+        local possibleLocations = {
+            ReplicatedStorage,
+            workspace,
+            LocalPlayer,
+            game:GetService("Lighting")
+        }
+        
+        for _, location in ipairs(possibleLocations) do
+            for _, child in ipairs(location:GetChildren()) do
+                if casesDatabase[child.Name] then
+                    availableCases[child.Name] = casesDatabase[child.Name]
                 end
             end
         end
+        
+        -- Также проверяем через RemoteEvents/RemoteFunctions
+        local events = ReplicatedStorage:FindFirstChild("Events")
+        if events then
+            for _, event in ipairs(events:GetChildren()) do
+                if event.Name == "OpenCase" then
+                    -- Если есть ивент открытия кейса, предполагаем что все кейсы из базы доступны
+                    for caseName, caseData in pairs(casesDatabase) do
+                        availableCases[caseName] = caseData
+                    end
+                    break
+                end
+            end
+        end
+        
+        return availableCases
     end)
     
-    if #availableCases == 0 then
-        -- Если не удалось найти кейсы, используем базовые
-        for caseName, price in pairs(casesDatabase) do
-            if currentMoney >= price then
-                table.insert(availableCases, {
-                    name = caseName,
-                    price = price,
-                    affordable = true
-                })
+    if success and next(availableCases) ~= nil then
+        return availableCases
+    else
+        -- Если не удалось определить доступные кейсы, используем всю базу
+        warn("Не удалось определить доступные кейсы, используем полную базу")
+        return casesDatabase
+    end
+end
+
+-- Функция для анализа окупаемости кейса
+local function analyzeCaseProfitability(caseName, caseData)
+    if caseProfitabilityCache[caseName] and caseAnalysisCount[caseName] and caseAnalysisCount[caseName] > 10 then
+        return caseProfitabilityCache[caseName]
+    end
+    
+    local profitabilityScore = 0
+    local basePrice = caseData.price
+    
+    -- Анализируем историю открытий этого кейса
+    local totalProfit = 0
+    local openCount = caseAnalysisCount[caseName] or 0
+    
+    -- Если у нас мало данных об этом кейсе, используем эвристику
+    if openCount < 5 then
+        -- Эвристика: более дорогие кейсы обычно имеют лучшую окупаемость
+        -- но требуют большего начального капитала
+        profitabilityScore = (caseData.priority * 10) / math.max(1, basePrice / 1000)
+        
+        -- Учитываем текущий баланс - можем ли мы позволить серию открытий
+        if currentMoney >= basePrice * 3 then
+            profitabilityScore = profitabilityScore * 1.5
+        elseif currentMoney >= basePrice * 5 then
+            profitabilityScore = profitabilityScore * 2.0
+        end
+    else
+        -- Используем реальные данные об окупаемости
+        profitabilityScore = totalProfit / math.max(1, openCount)
+    end
+    
+    caseProfitabilityCache[caseName] = profitabilityScore
+    return profitabilityScore
+end
+
+-- Функция для выбора оптимального кейса
+local function getOptimalCase()
+    local availableCases = getAvailableCases()
+    local bestCase = nil
+    local bestScore = -math.huge
+    
+    for caseName, caseData in pairs(availableCases) do
+        -- Пропускаем кейсы которые не можем позволить
+        if caseData.price <= currentMoney then
+            local profitability = analyzeCaseProfitability(caseName, caseData)
+            local affordability = currentMoney / caseData.price
+            
+            -- Комбинированный score: окупаемость + возможность многократного открытия
+            local combinedScore = profitability * math.min(affordability, 10)
+            
+            if combinedScore > bestScore then
+                bestScore = combinedScore
+                bestCase = caseName
             end
         end
     end
     
-    return availableCases
-end
-
--- Функция для расчета оптимального кейса
-local function calculateOptimalCase(availableCases)
-    local bestCase = nil
-    local bestScore = -math.huge
-    
-    for _, case in ipairs(availableCases) do
-        local caseName = case.name
-        local price = case.price
-        
-        -- Базовый приоритет (чем дешевле кейс относительно баланса, тем лучше)
-        local affordability = (currentMoney - price) / currentMoney
-        
-        -- Учитываем историю окупаемости если есть
-        local profitabilityScore = 1.0 -- нейтральное значение по умолчанию
-        local confidence = 0.1 -- низкая уверенность по умолчанию
-        
-        if caseProfitabilityCache[caseName] then
-            local cache = caseProfitabilityCache[caseName]
-            profitabilityScore = cache.avgReturn
-            confidence = cache.confidence
-        end
-        
-        -- Штрафуем слишком дорогие кейсы на начальном этапе
-        local pricePenalty = 0
-        if price > currentMoney * 0.1 then -- Если кейс дороже 10% баланса
-            pricePenalty = (price / (currentMoney * 0.1)) - 1
-        end
-        
-        -- Поощряем диверсификацию (пробуем разные кейсы)
-        local diversityBonus = 0
-        if caseHistory[caseName] and caseHistory[caseName].totalOpened < 3 then
-            diversityBonus = 0.5 * (3 - caseHistory[caseName].totalOpened) / 3
-        end
-        
-        -- Итоговый score
-        local score = (profitabilityScore * confidence) + (affordability * 0.3) - (pricePenalty * 0.2) + diversityBonus
-        
-        -- Бесплатные кейсы всегда имеют высокий приоритет
-        if price == 0 then
-            score = score + 2
-        end
-        
-        -- Учитываем прогрессию - постепенно переходим к более дорогим кейсам
-        local progressionBonus = 0
-        if price > 0 and price <= currentMoney * 0.05 then -- Кейсы до 5% от баланса
-            progressionBonus = 0.3
-        end
-        
-        score = score + progressionBonus
-        
-        if score > bestScore then
-            bestScore = score
-            bestCase = case
+    -- Если нет подходящих кейсов, используем самый дешевый доступный
+    if not bestCase then
+        local cheapestPrice = math.huge
+        for caseName, caseData in pairs(availableCases) do
+            if caseData.price < cheapestPrice then
+                cheapestPrice = caseData.price
+                bestCase = caseName
+            end
         end
     end
     
     return bestCase
 end
 
--- Функция для оценки стоимости выпавших предметов
-local function estimateItemsValue()
-    -- Эта функция должна анализировать выпавшие предметы и оценивать их стоимость
-    -- В реальной реализации нужно парсить инвентарь или использовать данные из игры
-    -- Для упрощения будем использовать эвристическую оценку
-    
-    local baseValue = 0
-    
-    -- Эвристика: чем дороже кейс, тем ценнее предметы (в среднем)
-    -- В реальной реализации нужно анализировать фактический выпад
-    if currentMoney < 1000 then
-        baseValue = math.random(50, 200)
-    elseif currentMoney < 10000 then
-        baseValue = math.random(200, 1000)
-    elseif currentMoney < 100000 then
-        baseValue = math.random(1000, 5000)
-    else
-        baseValue = math.random(5000, 25000)
+-- Функция для обновления статистики кейса после открытия
+local function updateCaseStats(caseName, profit)
+    if not caseAnalysisCount[caseName] then
+        caseAnalysisCount[caseName] = 0
+        caseProfitabilityCache[caseName] = 0
     end
     
-    -- Добавляем случайность для имитации разных выпадений
-    local multiplier = math.random(70, 150) / 100
-    return baseValue * multiplier
+    local currentCount = caseAnalysisCount[caseName]
+    local currentProfit = caseProfitabilityCache[caseName] or 0
+    
+    -- Обновляем среднюю окупаемость
+    caseProfitabilityCache[caseName] = (currentProfit * currentCount + profit) / (currentCount + 1)
+    caseAnalysisCount[caseName] = currentCount + 1
 end
 
 -- Функция для продажи всех предметов
 local function sellAllItems()
+    local totalProfit = 0
     local success, errorMsg = pcall(function()
-        local args = {"Sell", "ALL"}
+        local args = {
+            "Sell",
+            "ALL"
+        }
         game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Inventory"):FireServer(unpack(args))
+        
+        -- После продажи обновляем деньги
+        local oldMoney = currentMoney
+        currentMoney = getMoney()
+        totalProfit = currentMoney - oldMoney
     end)
     
     if success then
-        print("Успешно проданы все предметы")
-        return true
+        print("Успешно проданы все предметы, прибыль: " .. totalProfit)
+        return true, totalProfit
     else
         warn("Ошибка при продаже предметов: " .. tostring(errorMsg))
-        return false
+        return false, 0
     end
 end
 
--- Улучшенная функция автоматического фарма
-local function intelligentAutoFarm()
+-- Функция автоматического фарма
+local function autoFarmCases()
+    local lastCase = nil
+    local consecutiveOpens = 0
+    
     while autoFarmEnabled do
-        -- Получаем актуальный баланс
-        currentMoney = getMoney()
+        local optimalCase = getOptimalCase()
         
-        -- Анализируем доступные кейсы
-        local availableCases = analyzeAvailableCases()
-        
-        if #availableCases == 0 then
-            warn("Нет доступных кейсов для открытия")
-            wait(2)
-            continue
-        end
-        
-        -- Вычисляем оптимальный кейс
-        local optimalCase = calculateOptimalCase(availableCases)
-        
-        if not optimalCase then
-            warn("Не удалось определить оптимальный кейс")
-            wait(2)
-            continue
-        end
-        
-        -- Открываем выбранный кейс
-        local openSuccess, openError = pcall(function()
-            local args = {optimalCase.name, 1} -- Открываем по 1 кейсу для лучшего контроля
-            game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("OpenCase"):InvokeServer(unpack(args))
-        end)
-        
-        if openSuccess then
-            print("Успешно открыт кейс: " .. optimalCase.name .. " (Цена: " .. optimalCase.price .. ")")
+        if optimalCase then
+            local caseData = casesDatabase[optimalCase]
+            local moneyBefore = currentMoney
             
-            -- Ждем обработки открытия
-            wait(0.5)
-            
-            -- Оцениваем стоимость выпавших предметов (в реальной реализации нужно парсить инвентарь)
-            local estimatedValue = estimateItemsValue()
-            
-            -- Записываем результат для будущего анализа
-            recordCaseResult(optimalCase.name, optimalCase.price, estimatedValue)
-            
-            -- Продаем все предметы
-            local sellSuccess = sellAllItems()
-            
-            if sellSuccess then
-                -- Обновляем баланс после продажи
-                wait(0.5)
-                currentMoney = getMoney()
-                
-                -- Логируем статистику
-                local caseStats = caseHistory[optimalCase.name]
-                if caseStats and caseStats.totalOpened > 0 then
-                    local avgReturn = caseStats.totalRevenue / caseStats.totalCost
-                    local profitMargin = ((caseStats.totalRevenue - caseStats.totalCost) / caseStats.totalCost) * 100
-                    print(string.format("Статистика кейса %s: Открыто %d, Окупаемость: %.2fx (%.1f%%)", 
-                          optimalCase.name, caseStats.totalOpened, avgReturn, profitMargin))
-                end
+            if optimalCase ~= lastCase then
+                print("Переход на новый кейс: " .. optimalCase .. " (цена: " .. caseData.price .. ")")
+                consecutiveOpens = 0
             end
             
+            lastCase = optimalCase
+            
+            -- Открываем кейс
+            local openSuccess, openError = pcall(function()
+                local args = {
+                    optimalCase,
+                    1  -- Открываем по одному для более точного анализа
+                }
+                game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("OpenCase"):InvokeServer(unpack(args))
+            end)
+            
+            if openSuccess then
+                consecutiveOpens = consecutiveOpens + 1
+                
+                -- Ждем немного перед продажей
+                wait(0.3)
+                
+                -- Продаем все предметы
+                local sellSuccess, profit = sellAllItems()
+                
+                if sellSuccess then
+                    -- Анализируем окупаемость этого открытия
+                    local actualProfit = profit - caseData.price
+                    updateCaseStats(optimalCase, actualProfit)
+                    
+                    print(string.format("Открыт %s | Прибыль: %d | Баланс: %d", 
+                          optimalCase, actualProfit, currentMoney))
+                end
+                
+                -- Если мы открыли несколько одинаковых кейсов подряд и баланс позволяет,
+                -- проверяем не пора ли перейти на более дорогой кейс
+                if consecutiveOpens >= 3 then
+                    local newOptimal = getOptimalCase()
+                    if newOptimal ~= optimalCase then
+                        print("Обнаружен более выгодный кейс: " .. newOptimal)
+                    end
+                end
+                
+            else
+                warn("Ошибка при открытии кейса " .. optimalCase .. ": " .. tostring(openError))
+            end
+            
+            -- Обновляем счетчик итераций
+            auto += 1
+            
         else
-            warn("Ошибка при открытии кейса " .. optimalCase.name .. ": " .. tostring(openError))
+            warn("Не удалось найти подходящий кейс для открытия")
         end
         
-        -- Обновляем счетчик итераций
-        auto += 1
-        
-        -- Обновляем отображение статистики
-        updateFarmStats()
-        
-        -- Динамическая задержка в зависимости от стоимости кейса
-        local delay = math.max(0.5, optimalCase.price / 10000) -- Чем дороже кейс, тем дольше ждем
-        wait(delay)
+        -- Ждем перед следующей итерацией
+        wait(0.5)
     end
 end
 
--- Функция для обновления статистики фарма
-local function updateFarmStats()
-    if FarmStatsLabel then
-        local totalOpened = 0
-        local totalProfit = 0
-        
-        for caseName, data in pairs(caseHistory) do
-            totalOpened = totalOpened + data.totalOpened
-            totalProfit = totalProfit + (data.totalRevenue - data.totalCost)
-        end
-        
-        FarmStatsLabel:Set(string.format("Открыто: %d | Прибыль: %d", totalOpened, totalProfit))
-    end
-end
-
--- Создание окна Rayfield (ваш существующий код)
 local Window = Rayfield:CreateWindow({
-   Name = "Интеллектуальный автофарм кейсов",
+   Name = "Умный автофарм кейсов",
    Icon = 0,
-   LoadingTitle = "Умная система фарма",
-   LoadingSubtitle = "Анализ окупаемости в реальном времени",
-   ShowText = "Интеллектуальный автофарм",
+   LoadingTitle = "Интеллектуальная система фарма",
+   LoadingSubtitle = "by Sirius",
+   ShowText = "Анализ окупаемости в реальном времени",
    Theme = "Default",
    ToggleUIKeybind = "K",
    DisableRayfieldPrompts = false,
    DisableBuildWarnings = false,
-   ConfigurationSaving = {Enabled = false},
-   Discord = {Enabled = false},
+   ConfigurationSaving = {
+      Enabled = false,
+      FolderName = nil,
+      FileName = "Smart Farm Hub"
+   },
+   Discord = {
+      Enabled = false,
+      Invite = "noinvitelink",
+      RememberJoins = true
+   },
    KeySystem = false
 })
 
-local Tab8 = Window:CreateTab("Умный Фарм", "settings")
+local Tab8 = Window:CreateTab("Умный Авто Фарм", "settings")
+local Tab9 = Window:CreateTab("Статистика", "chart-bar")
 local Tab1 = Window:CreateTab("Credits", "creative-commons")
+local Tab2 = Window:CreateTab("Info", "book-text")
 
--- Элементы интерфейса
+-- Элементы вкладки Умный Авто Фарм
 local Label = Tab8:CreateLabel("Интеллектуальная система фарма кейсов")
-local Label = Tab8:CreateLabel("Система анализирует окупаемость кейсов в реальном времени")
-local Label = Tab8:CreateLabel("и автоматически выбирает самый выгодный вариант")
+local Label = Tab8:CreateLabel("Система анализирует окупаемость каждого кейса в реальном времени")
+local Label = Tab8:CreateLabel("и автоматически выбирает самый прибыльный вариант")
 
 local CurrentMoneyLabel = Tab8:CreateLabel("Текущие деньги: 0")
-local OptimalCaseLabel = Tab8:CreateLabel("Рекомендуемый кейс: Не определен")
-local FarmStatsLabel = Tab8:CreateLabel("Статистика: Не активен")
+local CurrentCaseLabel = Tab8:CreateLabel("Текущий кейс: Ожидание...")
+local ProfitabilityLabel = Tab8:CreateLabel("Окупаемость: Анализ...")
 
--- Функция для обновления отображения денег и рекомендаций
-local function updateMoneyDisplay()
+-- Функция для обновления отображения статистики
+local function updateStatsDisplay()
     currentMoney = getMoney()
     CurrentMoneyLabel:Set("Текущие деньги: " .. tostring(currentMoney))
     
-    -- Обновляем рекомендацию
     if autoFarmEnabled then
-        local availableCases = analyzeAvailableCases()
-        local optimalCase = calculateOptimalCase(availableCases)
+        local optimalCase = getOptimalCase()
         if optimalCase then
-            local confidence = caseProfitabilityCache[optimalCase.name] and 
-                             caseProfitabilityCache[optimalCase.name].confidence or 0.1
-            OptimalCaseLabel:Set(string.format("Рекомендуемый кейс: %s (уверенность: %.1f%%)", 
-                optimalCase.name, confidence * 100))
+            CurrentCaseLabel:Set("Рекомендуемый кейс: " .. optimalCase)
+            local score = analyzeCaseProfitability(optimalCase, casesDatabase[optimalCase])
+            ProfitabilityLabel:Set("Оценка окупаемости: " .. string.format("%.2f", score))
         end
     end
 end
@@ -386,10 +352,9 @@ local ToggleButton = Tab8:CreateToggle({
                 Title = "Умный автофарм запущен",
                 Content = "Система анализирует окупаемость и выбирает оптимальные кейсы",
                 Duration = 3,
-                Image = "✓",
+                Image = "🧠",
             })
-            -- Запускаем умный автофарм
-            coroutine.wrap(intelligentAutoFarm)()
+            coroutine.wrap(autoFarmCases)()
         else
             Rayfield:Notify({
                 Title = "Автофарм остановлен",
@@ -401,73 +366,82 @@ local ToggleButton = Tab8:CreateToggle({
     end,
 })
 
--- Кнопка для сброса статистики
+-- Кнопка для принудительного анализа кейсов
 local Button = Tab8:CreateButton({
-    Name = "Сбросить статистику",
+    Name = "Обновить анализ кейсов",
     Callback = function()
+        -- Сбрасываем кэш для переанализа
         caseProfitabilityCache = {}
-        caseHistory = {}
+        updateStatsDisplay()
         Rayfield:Notify({
-            Title = "Статистика сброшена",
-            Content = "История окупаемости очищена",
+            Title = "Анализ обновлен",
+            Content = "Статистика окупаемости пересчитана",
             Duration = 3,
             Image = "✓",
         })
     end,
 })
 
--- Кнопка для принудительной продажи
-local Button = Tab8:CreateButton({
-    Name = "Продать все предметы",
-    Callback = function()
-        sellAllItems()
-        updateMoneyDisplay()
-    end,
-})
+-- Элементы вкладки Статистика
+local StatsLabel = Tab9:CreateLabel("Статистика окупаемости кейсов:")
+local CaseStatsLabels = {}
 
--- Показать статистику по кейсам
-local Button = Tab8:CreateButton({
-    Name = "Показать статистику кейсов",
-    Callback = function()
-        local statsText = "Статистика окупаемости:\n"
-        for caseName, data in pairs(caseHistory) do
-            if data.totalOpened > 0 then
-                local avgReturn = data.totalRevenue / data.totalCost
-                local profitMargin = ((data.totalRevenue - data.totalCost) / data.totalCost) * 100
-                statsText = statsText .. string.format("%s: %d откр., %.2fx окуп. (%.1f%%)\n", 
-                    caseName, data.totalOpened, avgReturn, profitMargin)
-            end
-        end
-        
-        Rayfield:Notify({
-            Title = "Статистика кейсов",
-            Content = statsText,
-            Duration = 8,
-            Image = "📊",
-        })
-    end,
-})
-
--- Автоматическое обновление интерфейса
-coroutine.wrap(function()
-    while true do
-        if autoFarmEnabled then
-            updateMoneyDisplay()
-            updateFarmStats()
-        end
-        wait(2)
+-- Функция для обновления статистики кейсов
+local function updateCaseStatsDisplay()
+    for _, label in pairs(CaseStatsLabels) do
+        label:Destroy()
     end
-end)()
+    CaseStatsLabels = {}
+    
+    local sortedCases = {}
+    for caseName, _ in pairs(casesDatabase) do
+        table.insert(sortedCases, caseName)
+    end
+    table.sort(sortedCases, function(a, b)
+        return casesDatabase[a].price < casesDatabase[b].price
+    end)
+    
+    for i, caseName in ipairs(sortedCases) do
+        local count = caseAnalysisCount[caseName] or 0
+        local profit = caseProfitabilityCache[caseName] or 0
+        local text = string.format("%s: %d открытий, окупаемость: %.1f", 
+            caseName, count, profit)
+        local label = Tab9:CreateLabel(text)
+        table.insert(CaseStatsLabels, label)
+    end
+end
 
--- Ваши остальные вкладки...
+-- Кнопка для просмотра статистики
+local Button = Tab9:CreateButton({
+    Name = "Обновить статистику",
+    Callback = function()
+        updateCaseStatsDisplay()
+    end,
+})
+
+-- Остальные элементы интерфейса...
 local Label = Tab1:CreateLabel("Кодер: Авед")
 local Label = Tab1:CreateLabel("Тестер: Авед, Дэмэнтый")
 local Label = Tab1:CreateLabel("Гуи: Sirius")
-local Label = Tab1:CreateLabel("Мария: Зайцева")
+local Label = Tab1:CreateLabel("Алгоритм: Интеллектуальный анализ окупаемости")
+
+local Label = Tab2:CreateLabel("Особенности системы:")
+local Label = Tab2:CreateLabel("• Анализ окупаемости в реальном времени")
+local Label = Tab2:CreateLabel("• Автоматический переход на более дорогие кейсы")
+local Label = Tab2:CreateLabel("• Учет возможности многократных открытий")
+local Label = Tab2:CreateLabel("• Статистика по каждому типу кейсов")
 
 Rayfield:Notify({
-   Title = "Интеллектуальный фарм активирован",
-   Content = "Система будет анализировать окупаемость кейсов в реальном времени",
+   Title = "УМНАЯ СИСТЕМА ЗАПУЩЕНА",
+   Content = "Алгоритм анализирует окупаемость каждого кейса",
    Duration = 6.5,
    Image = "🧠",
 })
+
+-- Автоматическое обновление отображения
+coroutine.wrap(function()
+    while true do
+        updateStatsDisplay()
+        wait(2)
+    end
+end)()

@@ -28,18 +28,10 @@ end
 local function getCaseToOpen()
     local money = getMoney()
     
-     if money >= 2700000 then
-        return "Dream"
-    elseif money >= 1400000 then
-        return "Glitch"
-    elseif money >= 1250000 then
-        return "Luxury"
-    elseif money >= 390000 then
-        return "Burj"
-    elseif money >= 145000 then
-        return "Palm"
-    elseif money >= 55000 then
-        return "Dark"
+     if money >= 8000000 then
+        return "Bloody Night"
+    elseif money >= 2500000 then
+        return "CATS"
     elseif money >= 21000 then
         return "Gold"
     elseif money >= 15000 then
@@ -123,12 +115,8 @@ local Label = Tab:CreateLabel("• ≥ 2.5K: Beggar")
 local Label = Tab:CreateLabel("• ≥ 7K: Office Clerk")
 local Label = Tab:CreateLabel("• ≥ 15K: Oligarch")
 local Label = Tab:CreateLabel("• ≥ 21K: Gold")
-local Label = Tab:CreateLabel("• ≥ 55K: Dark")
-local Label = Tab:CreateLabel("• ≥ 145K: Palm")
-local Label = Tab:CreateLabel("• ≥ 390K: Burj")
-local Label = Tab:CreateLabel("• ≥ 1.25M: Luxury")
-local Label = Tab:CreateLabel("• ≥ 1.4M: Glitch")
-local Label = Tab:CreateLabel("• ≥ 2.7M: Dream")
+local Label = Tab:CreateLabel("• ≥ 2.5M: CATS")
+local Label = Tab:CreateLabel("• ≥ 8.0M: Bloody Night")
 
 local CurrentMoneyLabel = Tab:CreateLabel("Текущие деньги: 0")
 

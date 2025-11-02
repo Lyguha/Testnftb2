@@ -96,6 +96,25 @@ local function getCaseToOpen()
     end
 end
 
+-- Функция для открытия обычного кейса
+local function openRegularCase(caseType, amount)
+    local success, errorMsg = pcall(function()
+        local args = {
+            caseType,
+            amount
+        }
+        return ReplicatedStorage:WaitForChild("Events"):WaitForChild("OpenCase"):InvokeServer(unpack(args))
+    end)
+    
+    if success then
+        print("Успешно открыт кейс: " .. caseType .. " x" .. tostring(amount))
+        return true
+    else
+        warn("Ошибка при открытии кейса " .. caseType .. ": " .. tostring(errorMsg))
+        return false
+    end
+end
+
 -- Функция для продажи всех предметов
 local function sellAllItems()
     local success, errorMsg = pcall(function()
@@ -142,53 +161,40 @@ local function autoFarmCases()
         
         -- Проверяем количество хэллоуинских монет
         local pumpkins = getPumpkins()
+        
+        -- ОТКРЫВАЕМ ОБЫЧНЫЕ КЕЙСЫ ПОСТОЯННО
+        local caseType = getCaseToOpen()
+        local openSuccess = openRegularCase(caseType, 10)
+        
+        if openSuccess then
+            print("Успешно открыт обычный кейс: " .. caseType)
+            
+            -- Ждем немного перед продажей
+            wait(0.5)
+            
+            -- Продаем все предметы из кейса
+            sellAllItems()
+            
+            -- Ждем еще немного
+            wait(0.5)
+            
+            -- Продаем все подарки (если они есть)
+            sellAllGifts()
+        else
+            warn("Ошибка при открытии обычного кейса: " .. caseType)
+        end
+        
+        -- ДОПОЛНИТЕЛЬНО: если есть достаточно хэллоуинских монет, открываем и ивентовый кейс
         if pumpkins >= 1000 then
-            -- Открываем хэллоуинский кейс Nightmare
+            print("Обнаружено " .. pumpkins .. " хэллоуинских монет, открываем кейс Nightmare")
             local nightmareSuccess = openNightmareCase()
             
             if nightmareSuccess then
-                -- Ждем немного перед продажей
+                -- Ждем немного перед продажей предметов из ивентового кейса
                 wait(0.5)
-                
-                -- Продаем все предметы из хэллоуинского кейса
                 sellAllItems()
-                
-                -- Ждем еще немного
                 wait(0.5)
-                
-                -- Продаем все подарки (если они есть)
                 sellAllGifts()
-            end
-        else
-            -- Обычный фарм обычных кейсов
-            local caseType = getCaseToOpen()
-            
-            -- Открываем кейс
-            local openSuccess, openError = pcall(function()
-                local args = {
-                    caseType,
-                    10
-                }
-                game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("OpenCase"):InvokeServer(unpack(args))
-            end)
-            
-            if openSuccess then
-                print("Успешно открыт кейс: " .. caseType)
-                
-                -- Ждем немного перед продажей
-                wait(0.5)
-                
-                -- Продаем все предметы из кейса
-                sellAllItems()
-                
-                -- Ждем еще немного
-                wait(0.5)
-                
-                -- Продаем все подарки (если они есть)
-                sellAllGifts()
-                
-            else
-                warn("Ошибка при открытии кейса: " .. tostring(openError))
             end
         end
         
@@ -245,7 +251,7 @@ local Label = Tab8:CreateLabel("• ≥ 7K: Office Clerk")
 local Label = Tab8:CreateLabel("• ≥ 15K: Oligarch")
 local Label = Tab8:CreateLabel("• ≥ 21K: Gold")
 local Label = Tab8:CreateLabel("• ≥ 5.1M: Bloody Night")
-local Label = Tab8:CreateLabel("• ≥ 1K хэллоуинских монет: Nightmare (приоритет)")
+local Label = Tab8:CreateLabel("• ≥ 1K хэллоуинских монет: + Nightmare (дополнительно)")
 
 local CurrentMoneyLabel = Tab8:CreateLabel("Текущие деньги: 0")
 local CurrentPumpkinsLabel = Tab8:CreateLabel("Хэллоуинские монеты: 0")

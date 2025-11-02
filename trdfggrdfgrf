@@ -1,5 +1,4 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local auto = 0
 local autoFarmEnabled = false
 local currentMoney = 0
 
@@ -72,26 +71,6 @@ local function sellAllItems()
     return success
 end
 
--- Функция для продажи всех подарков
-local function sellAllGifts()
-    local success, errorMsg = pcall(function()
-        local args = {
-            "Sell",
-            "ALL"
-        }
-        -- Предполагаем, что для подарков используется тот же ивент, но с другим типом
-        -- Если в игре отдельный ивент для подарков, нужно его указать
-        game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Inventory"):FireServer(unpack(args))
-    end)
-    
-    if success then
-        print("Успешно проданы все подарки")
-    else
-        warn("Ошибка при продаже подарков: " .. tostring(errorMsg))
-    end
-    return success
-end
-
 -- Функция автоматического фарма
 local function autoFarmCases()
     while autoFarmEnabled do
@@ -115,18 +94,9 @@ local function autoFarmCases()
             -- Продаем все предметы из кейса
             sellAllItems()
             
-            -- Ждем еще немного
-            wait(0.5)
-            
-            -- Продаем все подарки (если они есть)
-            sellAllGifts()
-            
         else
             warn("Ошибка при открытии кейса: " .. tostring(openError))
         end
-        
-        -- Обновляем счетчик итераций
-        auto += 1
         
         -- Обновляем счетчик денег
         currentMoney = getMoney()
@@ -138,52 +108,29 @@ end
 
 local Window = Rayfield:CreateWindow({
    Name = "Автофарм кейсов",
-   Icon = 0,
-   LoadingTitle = "не мой гуи",
+   LoadingTitle = "Автофарм кейсов",
    LoadingSubtitle = "by Sirius",
-   ShowText = "Автофарм Trash кейсов",
    Theme = "Default",
-   ToggleUIKeybind = "K",
-   DisableRayfieldPrompts = false,
-   DisableBuildWarnings = false,
-   ConfigurationSaving = {
-      Enabled = false,
-      FolderName = nil,
-      FileName = "Big Hub"
-   },
-   Discord = {
-      Enabled = false,
-      Invite = "noinvitelink",
-      RememberJoins = true
-   },
-   KeySystem = false
+   ToggleUIKeybind = "K"
 })
 
-local Tab2 = Window:CreateTab("Info", "book-text")
-local Tab4 = Window:CreateTab("Halloween", "banknote")
-local Tab = Window:CreateTab("Trash", "banknote")
-local Tab3 = Window:CreateTab("Beggar", "banknote")
-local Tab5 = Window:CreateTab("Plodder", "banknote")
-local Tab6 = Window:CreateTab("Office Clerk", "banknote")
-local Tab7 = Window:CreateTab("Manager", "banknote")
-local Tab8 = Window:CreateTab("Авто Фарм", "settings")
-local Tab1 = Window:CreateTab("Credits", "creative-commons")
+local Tab = Window:CreateTab("Авто Фарм", "settings")
 
 -- Добавляем элементы в вкладку Авто Фарм
-local Label = Tab8:CreateLabel("Система автоматически выбирает кейс по деньгам:")
-local Label = Tab8:CreateLabel("• < 2.5K: Trash")
-local Label = Tab8:CreateLabel("• ≥ 2.5K: Beggar")
-local Label = Tab8:CreateLabel("• ≥ 7K: Office Clerk")
-local Label = Tab8:CreateLabel("• ≥ 15K: Oligarch")
-local Label = Tab8:CreateLabel("• ≥ 21K: Gold")
-local Label = Tab8:CreateLabel("• ≥ 55K: Dark")
-local Label = Tab8:CreateLabel("• ≥ 145K: Palm")
-local Label = Tab8:CreateLabel("• ≥ 390K: Burj")
-local Label = Tab8:CreateLabel("• ≥ 1.25M: Luxury")
-local Label = Tab8:CreateLabel("• ≥ 1.4M: Glitch")
-local Label = Tab8:CreateLabel("• ≥ 2.7M: Dream")
+local Label = Tab:CreateLabel("Система автоматически выбирает кейс по деньгам:")
+local Label = Tab:CreateLabel("• < 2.5K: Trash")
+local Label = Tab:CreateLabel("• ≥ 2.5K: Beggar")
+local Label = Tab:CreateLabel("• ≥ 7K: Office Clerk")
+local Label = Tab:CreateLabel("• ≥ 15K: Oligarch")
+local Label = Tab:CreateLabel("• ≥ 21K: Gold")
+local Label = Tab:CreateLabel("• ≥ 55K: Dark")
+local Label = Tab:CreateLabel("• ≥ 145K: Palm")
+local Label = Tab:CreateLabel("• ≥ 390K: Burj")
+local Label = Tab:CreateLabel("• ≥ 1.25M: Luxury")
+local Label = Tab:CreateLabel("• ≥ 1.4M: Glitch")
+local Label = Tab:CreateLabel("• ≥ 2.7M: Dream")
 
-local CurrentMoneyLabel = Tab8:CreateLabel("Текущие деньги: 0")
+local CurrentMoneyLabel = Tab:CreateLabel("Текущие деньги: 0")
 
 -- Функция для обновления отображения денег
 local function updateMoneyDisplay()
@@ -192,7 +139,7 @@ local function updateMoneyDisplay()
 end
 
 -- Кнопка запуска автофарма
-local ToggleButton = Tab8:CreateToggle({
+local ToggleButton = Tab:CreateToggle({
     Name = "Авто Фарм кейсов",
     CurrentValue = false,
     Flag = "AutoFarmToggle",
@@ -201,7 +148,7 @@ local ToggleButton = Tab8:CreateToggle({
         if Value then
             Rayfield:Notify({
                 Title = "Автофарм запущен",
-                Content = "Система автоматически открывает кейсы и продает подарки",
+                Content = "Система автоматически открывает кейсы и продает предметы",
                 Duration = 3,
                 Image = "✓",
             })
@@ -219,7 +166,7 @@ local ToggleButton = Tab8:CreateToggle({
 })
 
 -- Кнопка для обновления баланса денег
-local Button = Tab8:CreateButton({
+local Button = Tab:CreateButton({
     Name = "Обновить баланс",
     Callback = function()
         updateMoneyDisplay()
@@ -233,7 +180,7 @@ local Button = Tab8:CreateButton({
 })
 
 -- Кнопка для ручной продажи всех предметов
-local Button = Tab8:CreateButton({
+local Button = Tab:CreateButton({
     Name = "Продать все предметы сейчас",
     Callback = function()
         local success = sellAllItems()
@@ -253,74 +200,6 @@ local Button = Tab8:CreateButton({
             })
         end
     end,
-})
-
--- Кнопка для ручной установки денег (для тестирования)
-local Input = Tab8:CreateInput({
-    Name = "Установить деньги (тест)",
-    PlaceholderText = "Введите сумму",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(Text)
-        currentMoney = tonumber(Text) or 0
-        updateMoneyDisplay()
-        Rayfield:Notify({
-            Title = "Деньги установлены",
-            Content = "Установлено: " .. tostring(currentMoney),
-            Duration = 3,
-            Image = "✓",
-        })
-    end,
-})
-
--- Остальной код вкладок остается без изменений
-local Label = Tab1:CreateLabel("Кодер: Авед")
-local Label = Tab1:CreateLabel("Тестер: Авед, Дэмэнтый")
-local Label = Tab1:CreateLabel("Гуи: Sirius")
-local Label = Tab1:CreateLabel("Мария: Зайцева")
-local Label = Tab2:CreateLabel("Тестировал на: Delta(android)")
-local Label = Tab2:CreateLabel("Тестировал на: Seliware(desktop)")
-local Label = Tab2:CreateLabel("Это open source проект")
-local Label = Tab2:CreateLabel("Донатов нету, разраб хороший прост")
-local Label = Tab2:CreateLabel("Ксено и соляра юзеры пидорасы")
-
-Rayfield:Notify({
-   Title = "ВНИМАНИЕ",
-   Content = "На телефонах возможны баги",
-   Duration = 6.5,
-   Image = "x",
-})
-
--- Ваш существующий код для ручного фарма
-local Button = Tab:CreateButton({
-   Name = "Фарм 1МЛН кейсов",
-   Callback = function()
-   while true do
-    local args = {
-    "Trash",
-    10
-  }
-  game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("OpenCase"):InvokeServer(unpack(args))
-    local args = {
-    "Sell",
-    "ALL"
-  }
-  game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Inventory"):FireServer(unpack(args))
-  wait(1)
-  auto += 1
-  
-  if auto == 100000 then
-    auto = 0
-    break
-  end
-end
-   end,
-})
-
-local Button = Tab2:CreateButton({
-   Name = "Полностью закрыть GUI",
-   Callback = function()
-   Rayfield:Destroy()
-   end,
 })
 
 -- Автоматическое обновление отображения денег

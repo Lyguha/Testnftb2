@@ -1,5 +1,5 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local autoFarmEnabled = false
+local autoFarmEnabled = true
 local currentMoney = 0
 
 -- Получаем ссылки на необходимые объекты игры
